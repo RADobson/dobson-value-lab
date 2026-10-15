@@ -1,6 +1,6 @@
 # Dobson Development — Value Lab
 
-**Make the case. See the trade-offs.**
+**Find your next win.**
 
 An open-source, browser-local sales discovery and investment workbench for cybersecurity and AI automation. Compare **expected risk reduced**, **hours recovered** and **actual spend reduced** per dollar invested, with all assumptions visible.
 
@@ -10,7 +10,9 @@ A private ChatGPT Site has been registered, but publication is pending because t
 
 ## What it does
 
+- An illustrated three-step journey: explore a goal, shape assumptions, compare opportunities.
 - Three opportunity models: cyber risk, AI capacity and cash savings.
+- Live results, tactile numeric controls, a payoff curve, and detailed assumptions in a drawer.
 - Editable, clearly fictional examples, with up to 20 opportunities.
 - A comparable cost/value matrix and an accessible comparison table.
 - 12-, 24- or 36-month horizon, monthly operating costs and go-live delay.
