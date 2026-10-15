@@ -12,7 +12,7 @@ const compact=n=>new Intl.NumberFormat('en-AU',{style:'currency',currency:state.
 const ratio=n=>n===null?'—':`${n.toFixed(2)}×`;
 const typeLabel={cyber:'Expected loss avoided',time:'Capacity value + cash share',cash:'Realised spend reduction'};
 const evidenceLabels={hypothesis:'Hypothesis',estimated:'Informed estimate',measured:'Measured / tested'};
-const colours={cyber:'#3c7668',time:'#748f9c',cash:'#b09979'};
+const colours={cyber:'#649527',time:'#8b6bc1',cash:'#d49a35'};
 let toastTimer;
 function toast(s){$('#toast').textContent=s;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,4500);}
 function serialise(){return JSON.stringify({...state,modelVersion:VERSION,exportedAt:new Date().toISOString()},null,2);}
@@ -36,42 +36,84 @@ const icons={
   cash:'<rect x="3" y="6" width="18" height="12" rx="3"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/>'
 };
 const modeNames={cyber:'Cyber risk',time:'Time saved',cash:'Money saved'};
-const quickFields={
-  cyber:[['setup','Implementation',100000,100,'$'],['monthly','Monthly cost',5000,50,'$'],['impact','Loss per event',1000000,1000,'$'],['frequencyReduction','Fewer incidents',100,1,'%'],['impactReduction','Lower impact',100,1,'%']],
-  time:[['setup','Implementation',100000,100,'$'],['monthly','Monthly cost',5000,50,'$'],['volume','Tasks per month',10000,50,''],['beforeMinutes','Manual time / task',60,1,'min'],['adoption','Adoption',100,1,'%']],
-  cash:[['setup','Implementation',100000,100,'$'],['monthly','Monthly cost',5000,50,'$'],['annualSpend','Annual spend',1000000,1000,'$'],['savingsRate','Spend reduction',100,1,'%'],['realisation','Savings realised',100,1,'%']]
+const scenes={
+cyber:`<ellipse cx="153" cy="210" rx="83" ry="11" fill="#d2e9aa"/><circle cx="150" cy="111" r="94" fill="#def1bd"/><g transform="rotate(-12 74 104)"><rect x="28" y="57" width="79" height="95" rx="14" fill="#c7e593"/><rect x="28" y="51" width="79" height="95" rx="14" fill="#fff"/><rect x="42" y="70" width="35" height="8" rx="4" fill="#d7e7c8"/><path d="M43 91h47m-47 15h31" stroke="#d7e7c8" stroke-width="7" stroke-linecap="round"/></g><path d="m151 39 65 25v60c0 39-38 66-65 81-27-15-65-42-65-81V64Z" fill="#28492d"/><path d="m151 30 65 25v60c0 39-38 66-65 81-27-15-65-42-65-81V55Z" fill="#426b39"/><path d="m151 45 51 20v49c0 29-28 52-51 66-23-14-51-37-51-66V65Z" fill="#9dd64b"/><path d="m128 107 17 18 33-39" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path d="M232 48v18m-9-9h18M67 176v12m-6-6h12" stroke="#73964e" stroke-width="5" stroke-linecap="round"/><circle cx="244" cy="152" r="7" fill="#a4cf6d"/>`,
+time:`<ellipse cx="153" cy="210" rx="82" ry="11" fill="#d7cff2"/><circle cx="153" cy="111" r="94" fill="#e3dcfa"/><path d="M36 94h29m-39 22h30m-15 23h22" stroke="#b7a4e7" stroke-width="8" stroke-linecap="round"/><g transform="rotate(10 160 113)"><rect x="149" y="20" width="22" height="31" rx="8" fill="#8370bf"/><rect x="141" y="15" width="38" height="17" rx="7" fill="#b3a0e7"/><circle cx="160" cy="122" r="77" fill="#56438d"/><circle cx="160" cy="113" r="77" fill="#8670ca"/><circle cx="160" cy="113" r="62" fill="#fefeff"/><path d="M160 63v7m0 86v7m-50-50h7m86 0h7" stroke="#d6cbea" stroke-width="5" stroke-linecap="round"/><path d="M160 78v35l27 18" stroke="#58428f" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="160" cy="113" r="8" fill="#b29be7"/></g><path d="m67 38 4 12 12 4-12 4-4 12-4-12-12-4 12-4Z" fill="#a38ad7"/><circle cx="249" cy="62" r="6" fill="#b09bdf"/>`,
+cash:`<ellipse cx="150" cy="210" rx="88" ry="11" fill="#f1d8a3"/><circle cx="150" cy="111" r="94" fill="#f9e6bb"/><g fill="#d69b30"><rect x="43" y="160" width="100" height="24" rx="12"/><rect x="43" y="147" width="100" height="23" rx="11"/></g><rect x="43" y="140" width="100" height="23" rx="11" fill="#f7cd68"/><path d="M56 152h73M59 173h65" stroke="#fff0bc" stroke-width="3" stroke-linecap="round"/><g transform="rotate(-12 162 112)"><circle cx="169" cy="117" r="76" fill="#bd7f20"/><circle cx="162" cy="109" r="76" fill="#efba4f"/><circle cx="162" cy="109" r="61" fill="#ffdc7b" stroke="#f9edb3" stroke-width="4"/><path d="M181 82c-5-9-33-13-36 2-4 20 37 14 35 34-1 16-29 21-40 6m21-59v80" fill="none" stroke="#bc7d20" stroke-width="10" stroke-linecap="round"/></g><path d="m252 138 5 15 15 5-15 5-5 15-5-15-15-5 15-5Z" fill="#d9a342"/><circle cx="60" cy="56" r="6" fill="#eac16a"/>`
 };
+function art(type){return `<svg viewBox="0 0 300 235" focusable="false" aria-hidden="true">${scenes[type]}</svg>`;}
+const groupFields={
+  cyber:[[['setup','Upfront investment',100000,100,'$'],['monthly','Monthly cost',5000,50,'$']],[['frequency','Loss events / year',2,.05,''],['impact','Loss per event',1000000,1000,'$']],[['frequencyReduction','Fewer incidents',100,1,'%'],['impactReduction','Lower impact',100,1,'%']]],
+  time:[[['setup','Upfront investment',100000,100,'$'],['monthly','Monthly cost',5000,50,'$']],[['volume','Tasks / month',10000,50,''],['beforeMinutes','Manual time / task',60,1,'min']],[['adoption','Adoption',100,1,'%'],['afterMinutes','Work retained / task',60,1,'min']]],
+  cash:[[['setup','Upfront investment',100000,100,'$'],['monthly','Monthly cost',5000,50,'$']],[['annualSpend','Annual addressable spend',1000000,1000,'$']],[['savingsRate','Spend reduction',100,1,'%'],['realisation','Savings realised',100,1,'%']]]
+};
+let view='goals',inputGroup=0;
+const currencySymbol=()=>new Intl.NumberFormat('en-AU',{style:'currency',currency:state.settings.currency,currencyDisplay:'narrowSymbol'}).formatToParts(0).find(x=>x.type==='currency').value;
+function setView(next,focus=true){
+  view=next;
+  document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!==next+'-view');
+  document.querySelectorAll('.journey [data-view]').forEach(el=>{
+    const active=el.dataset.view===next;
+    if(active)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');
+  });
+  renderResults();
+  if(focus){
+    window.scrollTo({top:0,behavior:'instant'});
+    const target=next==='model'?$('#project-heading'):$('#'+(next==='goals'?'goals-title':'compare-title'));
+    target.setAttribute('tabindex','-1');
+    target.focus({preventScroll:true});
+  }
+}
+function chooseGoal(type){
+  let p=state.projects.find(p=>p.type===type);
+  if(!p){if(state.projects.length>=20)return toast('Keep up to 20 opportunities per analysis.');p=example(type,crypto.randomUUID());state.projects.push(p);persist();}
+  current=p.id;inputGroup=0;renderAll();setView('model');
+}
 function renderQuick(){
   const p=selected();
-  $('#quick-controls').innerHTML=quickFields[p.type].map(([key,label,max,step,unit])=>{
-    const v=p[key], upper=Math.max(max,Number.isFinite(v)?v:0), percent=Number.isFinite(v)?Math.max(0,Math.min(100,v/upper*100)):0;
-    return `<div class="slider-row"><div class="slider-heading"><label for="quick-${key}">${label}</label><div class="numeric-value">${unit==='$'?'<span>$</span>':''}<input id="quick-${key}" data-key="${key}" type="number" inputmode="decimal" min="${LIMITS[key][0]}" max="${LIMITS[key][1]}" step="any" value="${Number.isFinite(v)?v:''}" required aria-label="${label}">${unit&&unit!=='$'?`<span>${unit}</span>`:''}</div></div><input type="range" data-key="${key}" aria-label="Adjust ${label.toLowerCase()}" min="0" max="${upper}" step="${step}" value="${Number.isFinite(v)?v:0}" style="--fill:${percent}%"></div>`;
+  const questions=['What will it cost?',p.type==='cyber'?'What’s at risk?':p.type==='time'?'What’s the workload?':'What’s the spend?','What could change?'];
+  const captions=['Include setup and ongoing costs.',p.type==='cyber'?'Start with a realistic loss scenario.':p.type==='time'?'Use your current monthly workflow.':'Only spend this project can affect.','Set a target you can test.'];
+  $('#question-title').textContent=questions[inputGroup];
+  $('#question-caption').textContent=captions[inputGroup];
+  $('#group-back').disabled=inputGroup===0;
+  $('#group-next').innerHTML=inputGroup===2?'Compare options <span aria-hidden="true">→</span>':'Next <span aria-hidden="true">→</span>';
+  document.querySelectorAll('[data-group]').forEach(el=>el.setAttribute('aria-pressed',String(Number(el.dataset.group)===inputGroup)));
+  $('#quick-controls').innerHTML=groupFields[p.type][inputGroup].map(([key,label,max,step,unit])=>{
+    const v=p[key],upper=Math.max(max,Number.isFinite(v)?v:0),percent=Number.isFinite(v)?Math.max(0,Math.min(100,v/upper*100)):0;
+    return `<div class="slider-row"><label for="quick-${key}">${label}</label><div class="number-control"><span class="input-unit">${unit==='$'?esc(currencySymbol()):''}</span><input id="quick-${key}" data-key="${key}" type="number" inputmode="decimal" min="${LIMITS[key][0]}" max="${LIMITS[key][1]}" step="any" value="${Number.isFinite(v)?v:''}" required aria-label="${label}">${unit&&unit!=='$'?`<span class="input-unit suffix">${unit}</span>`:''}<div class="nudge-controls"><button type="button" data-nudge="${key}" data-amount="${-step}" aria-label="Decrease ${label.toLowerCase()}">−</button><button type="button" data-nudge="${key}" data-amount="${step}" aria-label="Increase ${label.toLowerCase()}">+</button></div></div><input type="range" data-key="${key}" aria-label="Adjust ${label.toLowerCase()}" min="0" max="${upper}" step="${step}" value="${Number.isFinite(v)?v:0}" style="--fill:${percent}%"></div>`;
   }).join('');
 }
 function renderSidebar(){
-  $('#project-list').innerHTML=state.projects.map(p=>{
-    const sameType=state.projects.filter(x=>x.type===p.type).length>1;
-    return `<button class="project-item ${p.id===current?'selected':''}" data-project="${esc(p.id)}" ${p.id===current?'aria-current="true"':''} title="${esc(p.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${icons[p.type]}</svg><span>${sameType?esc(p.name||'Untitled'):`<span class="tab-long">${modeNames[p.type]}</span><span class="tab-short">${{cyber:'Risk',time:'Time',cash:'Savings'}[p.type]}</span>`}</span></button>`;
-  }).join('');
+  $('#opportunity-select').innerHTML=state.projects.map(p=>`<option value="${esc(p.id)}" ${p.id===current?'selected':''}>${esc(p.name||'Untitled')}</option>`).join('');
 }
 function renderHeader(){
   const p=selected(),s=state.settings;
+  document.body.dataset.mode=p.type;
+  $('#mode-label').textContent=MODES[p.type].toUpperCase();
+  $('#model-art').innerHTML=art(p.type);
   $('#project-heading').textContent=p.name||'Untitled opportunity';
   $('#example-badge').textContent=p.isExample?'Example':'Edit';
   $('#example-badge').title=p.isExample?'Edit this illustrative example':'Edit opportunity';
   $('#example-text').textContent=p.isExample?'Illustrative inputs. Add your own evidence.':'Your estimate.';
   $('#mark-own').hidden=!p.isExample;
-  $('#horizon').value=s.months;
-  $('#currency').value=s.currency;
-  $('#remember').checked=remember;
+  $('#horizon').value=s.months;$('#currency').value=s.currency;$('#remember').checked=remember;
   $('#evidence-summary').textContent=evidenceLabels[p.confidence];
-  document.querySelectorAll('[data-scenario]').forEach(b=>{
-    b.classList.toggle('active',b.dataset.scenario===scenario);
-    b.setAttribute('aria-pressed',String(b.dataset.scenario===scenario));
-  });
+  document.querySelectorAll('[data-scenario]').forEach(b=>{b.classList.toggle('active',b.dataset.scenario===scenario);b.setAttribute('aria-pressed',String(b.dataset.scenario===scenario));});
   $('#scenario-caption').textContent=scenario==='base'?'Base assumptions, unchanged.':scenario==='downside'?`Benefits −${s.benefitDown}% · costs +${s.costUp}%`:`Benefits +${s.benefitUp}% · costs −${s.costDown}%`;
   $('#matrix-horizon').textContent=`${s.months} MONTHS · ${s.currency} · ${scenario.toUpperCase()}`;
-  $('#value-note').textContent=p.type==='cyber'?'Modelled risk benefit':p.type==='time'?`Capacity value · ${fmt(p.cashRealisation)}% cash realisation`:'Modelled cash savings';
+  $('#value-note').textContent=p.type==='cyber'?'Expected risk reduction':p.type==='time'?`Capacity · ${fmt(p.cashRealisation)}% cash realisation`:'Modelled cash savings';
+}
+function renderReturnBars(p,r){
+  const max=Math.max(1,r.cost,Math.abs(r.benefit));
+  const label=p.type==='cyber'?'Risk avoided':p.type==='time'?'Economic value':'Economic savings';
+  $('#value-bars').innerHTML=[['Investment',r.cost,'cost'],[label,r.benefit,r.benefit<0?'negative':'benefit']].map(([name,value,kind])=>`<div class="value-bar-row"><div><span>${name}</span><strong>${money(value)}</strong></div><div class="value-bar-track"><span class="${kind}" style="width:${Math.min(100,Math.abs(value)/max*100)}%"></span></div></div>`).join('');
+}
+function renderComparisonCards(){
+  $('#comparison-cards').innerHTML=state.projects.map(p=>{
+    if(!validProject(p)||!validateSettings(state.settings))return `<button class="comparison-tile" data-project="${esc(p.id)}"><strong>${esc(p.name)}</strong><span>Check inputs</span></button>`;
+    const r=calculate(p,state.settings,scenario);
+    return `<button class="comparison-tile ${p.type}" data-project="${esc(p.id)}"><div class="comparison-tile-top"><span class="mini-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${icons[p.type]}</svg></span><span class="example-pill">${p.isExample?'Example':evidenceLabels[p.confidence]}</span></div><strong>${esc(p.name)}</strong><span class="comparison-return ${r.ratio!==null&&r.ratio<0?'negative':''}">${ratio(r.ratio)}</span><span class="comparison-caption">Economic value per ${esc(currencySymbol())}1 <span aria-hidden="true">↗</span></span></button>`;
+  }).join('');
 }
 function renderTrajectory(r){
   const months=state.settings.months;
@@ -94,19 +136,20 @@ function renderResults(){
   const p=selected(),errors=validate(p);
   if(errors.length||!validateSettings(state.settings)){
     $('#results').innerHTML=`<div class="error-panel" role="alert"><strong>Check your inputs</strong>${esc(errors.join(' ')||'Use valid sensitivity settings.')}</div>`;
-    for(const id of ['trajectory','summary-metrics','details-metrics','outcome','comparison-rows']) $('#'+id).innerHTML='';
+    renderComparisonCards();
+    for(const id of ['trajectory','summary-metrics','details-metrics','outcome','comparison-rows','value-bars']) $('#'+id).innerHTML='';
     $('#matrix').innerHTML='<p class="chart-note">Correct the inputs to show the matrix.</p>';
     $('#next-copy').textContent='Correct the inputs to continue.';
     return;
   }
   const r=calculate(p,state.settings,scenario),months=state.settings.months;
   const value=p.type==='time'?r.hoursPer1000:p.type==='cash'?r.cashRatio:r.ratio;
-  const label=p.type==='time'?'Hours recovered / $1,000':p.type==='cash'?'Cash saved / $1 invested':'Risk reduced / $1 invested';
+  const label=p.type==='time'?`Hours recovered per ${currencySymbol()}1,000`:p.type==='cash'?`Cash saved per ${currencySymbol()}1`:`Risk reduced per ${currencySymbol()}1`;
   const caption=p.type==='cyber'?'Expected loss avoided, less new risk':p.type==='time'?(r.hours<0?'Additional work required':'Time available for higher-value work'):'Gross savings before project cost';
-  $('#results').innerHTML=`<div class="return-block"><p class="return-label">${label}</p><div class="return-number ${value!==null&&value<0?'negative':''}">${value===null?'—':p.type==='time'?fmt(value):value.toFixed(2)}${value!==null?`<span class="unit">${p.type==='time'?'h':'×'}</span>`:''}</div><p class="return-caption">${caption}</p></div>`;
-  $('#summary-metrics').innerHTML=`<div class="summary-item"><span>Net value</span><strong class="${r.net<0?'negative':'positive'}">${r.net>0?'+':''}${compact(r.net)}</strong></div><div class="summary-item"><span>Total cost</span><strong>${compact(r.cost)}</strong></div><div class="summary-item"><span>${p.type==='cash'&&p.introducedRisk===0?'Cash break-even':'Economic break-even'}</span><strong>${r.breakEven===null?'—':`${r.breakEven} <span class="unit">months</span>`}</strong></div>`;
+  $('#results').innerHTML=`<div class="return-block"><div class="return-number ${value!==null&&value<0?'negative':''}">${value===null?'—':p.type==='time'?fmt(value):value.toFixed(2)}${value!==null?`<span class="unit">${p.type==='time'?'h':'×'}</span>`:''}</div><p class="return-label">${label}</p><p class="return-caption">${caption}</p></div>`;
+  $('#summary-metrics').innerHTML=`<div class="summary-item"><span>Net value</span><strong class="${r.net<0?'negative':'positive'}">${r.net>0?'+':''}${compact(r.net)}</strong></div><div class="summary-item"><span>${p.type==='cash'&&p.introducedRisk===0?'Cash break-even':'Economic break-even'}</span><strong>${r.breakEven===null?'—':`${r.breakEven} <span class="unit">months</span>`}</strong></div>`;
   $('#details-metrics').innerHTML=`<span>Total cost<b>${money(r.cost)}</b></span><span>Net economic value<b>${money(r.net)}</b></span><span>ROI<b>${r.roi===null?'—':fmt(r.roi)+'%'}</b></span><span>NPV<b>${money(r.npv)}</b></span><span>Benefits active<b>${r.activeMonths} months</b></span><span>Break-even<b>${r.breakEven===null?'Not reached':r.breakEven+' months'}</b></span>`;
-  renderTrajectory(r);
+  renderReturnBars(p,r);renderComparisonCards();renderTrajectory(r);
 const bar=(label,value,max,light=false)=>`<div class="bar-row"><div class="bar-label"><span>${esc(label)}</span><b>${money(value)}</b></div><div class="bar-track"><div class="bar-fill ${light?'light':''}" style="width:${Math.max(0,Math.min(100,max>0?value/max*100:0))}%"></div></div></div>`;
 if(p.type==='cyber')$('#outcome').innerHTML=bar('Baseline annual expected loss',r.baseline,Math.max(r.baseline,r.residualAdjusted))+bar('Residual annual loss, including new risk',r.residualAdjusted,Math.max(r.baseline,r.residualAdjusted),true)+`<p class="outcome-note">${money(r.annualBenefit)} annual expected loss reduction after go-live. A modelled risk benefit, not guaranteed cash savings.</p><div class="outcome-split"><span>Risk reduction</span><strong>${r.baseline>0?fmt(r.annualBenefit/r.baseline*100)+'%':'No baseline loss'}</strong></div>`;
 if(p.type==='time')$('#outcome').innerHTML=bar('Capacity value (non-cash)',r.capacityValue,Math.max(0,r.capacityValue+r.cash))+bar('Cash share backed by expense reduction',r.cash,Math.max(0,r.capacityValue+r.cash),true)+`<p class="outcome-note">${fmt(r.hours)} hours ${r.hours<0?'of extra work':'recovered'} over ${months} months. These are two parts of the same value; they are not added twice.${p.introducedRisk>0?` New risk subtracts ${money(p.introducedRisk*r.activeMonths/12)} from the total.`:''}</p><div class="outcome-split"><span>Economic value / $1</span><strong>${ratio(r.ratio)}</strong></div>`;
@@ -122,7 +165,7 @@ $('#matrix').innerHTML=svg+'</svg>';}
 function renderComparison(){ $('#comparison-rows').innerHTML=state.projects.map((p,i)=>{if(!validProject(p))return `<tr><td>${esc(p.name)}</td><td colspan="5">Correct invalid inputs.</td></tr>`;const r=calculate(p,state.settings,scenario);return `<tr><td><button data-project="${esc(p.id)}">${String(i+1).padStart(2,'0')} &nbsp; ${esc(p.name)}</button><small>${typeLabel[p.type]}${p.isExample?' · example':''}</small></td><td>${money(r.cost)}</td><td>${ratio(r.ratio)}${p.type==='time'?`<small>${fmt(r.hoursPer1000??0)} hours / $1,000</small>`:''}</td><td class="${r.net<0?'warning':''}">${money(r.net)}</td><td>${r.breakEven===null?'Not reached':r.breakEven+' months'}</td><td><span class="pill">${evidenceLabels[p.confidence]}</span></td></tr>`;}).join('');}
 function renderSensitivity(){const labels={benefitDown:'Downside benefit reduction (%)',costUp:'Downside cost increase (%)',benefitUp:'Upside benefit increase (%)',costDown:'Upside cost reduction (%)',discount:'Annual discount rate (%)'};$('#sensitivity-fields').innerHTML=Object.entries(labels).map(([k,l])=>`<div class="field"><label for="setting-${k}">${l}</label><input id="setting-${k}" data-setting="${k}" type="number" min="0" max="${k==='discount'?50:k==='benefitUp'||k==='costUp'?200:100}" step="any" value="${state.settings[k]}" required></div>`).join('');}
 function renderAll(){renderSidebar();renderHeader();renderForm();renderQuick();renderSensitivity();renderResults();}
-function selectProject(id){current=id;renderAll();if($('#compare-dialog').open)$('#compare-dialog').close();}
+function selectProject(id){current=id;inputGroup=0;renderAll();setView('model');}
 function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type}));const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function exportJSON(){if(!allValid())return;download(serialise(),'dobson-value-lab-analysis.json','application/json');toast('Analysis downloaded. It includes your inputs and evidence notes.');}
 function allValid(){if(!state.projects.every(validProject)||!validateSettings(state.settings)){toast('Correct invalid inputs before exporting.');return false;}return true;}
@@ -147,13 +190,13 @@ $('#quick-controls').addEventListener('input',e=>{
 $('#quick-controls').addEventListener('change',e=>{
   const key=e.target.dataset.key;if(key&&Number.isFinite(selected()[key]))renderHeader();
 });
-for(const [trigger,target] of Object.entries({'compare-open':'compare-dialog','export-open':'export-dialog','assumptions-open':'assumptions-dialog','example-badge':'assumptions-dialog','details-open':'details-dialog','scenario-settings':'sensitivity-dialog'})){
+for(const [trigger,target] of Object.entries({'export-open':'export-dialog','assumptions-open':'assumptions-dialog','example-badge':'assumptions-dialog','details-open':'details-dialog','scenario-settings':'sensitivity-dialog'})){
   $('#'+trigger).onclick=()=>$('#'+target).showModal();
 }
 $('#assumptions').addEventListener('input',e=>{const el=e.target;if(!el.name)return;const p=selected();p[el.name]=LIMITS[el.name]?(el.value===''?NaN:Number(el.value)):el.value;renderSidebar();renderHeader();renderQuick();renderResults();persist();});
 $('#assumptions').addEventListener('submit',e=>e.preventDefault());
 $('#sensitivity-fields').addEventListener('input',e=>{const k=e.target.dataset.setting;if(!k)return;state.settings[k]=e.target.value===''?NaN:Number(e.target.value);renderHeader();renderResults();persist();});
-document.addEventListener('click',e=>{const project=e.target.closest('[data-project]');if(project){selectProject(project.dataset.project);return;}const close=e.target.closest('[data-close]');if(close){$('#'+close.dataset.close).close();return;}const sc=e.target.closest('[data-scenario]');if(sc){scenario=sc.dataset.scenario;renderHeader();renderResults();return;}const add=e.target.closest('[data-add]');if(add){if(state.projects.length>=20)return toast('Keep up to 20 opportunities per analysis.');const p=example(add.dataset.add,crypto.randomUUID());state.projects.push(p);current=p.id;$('#add-dialog').close();renderAll();persist();}});
+document.addEventListener('click',e=>{const project=e.target.closest('[data-project]');if(project){selectProject(project.dataset.project);return;}const close=e.target.closest('[data-close]');if(close){$('#'+close.dataset.close).close();return;}const sc=e.target.closest('[data-scenario]');if(sc){scenario=sc.dataset.scenario;renderHeader();renderResults();return;}const add=e.target.closest('[data-add]');if(add){if(state.projects.length>=20)return toast('Keep up to 20 opportunities per analysis.');const p=example(add.dataset.add,crypto.randomUUID());state.projects.push(p);current=p.id;inputGroup=0;$('#add-dialog').close();renderAll();setView('model');persist();}});
 $('#matrix').addEventListener('keydown',e=>{const p=e.target.closest('[data-project]');if(p&&['Enter',' '].includes(e.key)){e.preventDefault();selectProject(p.dataset.project);}});
 $('#horizon').onchange=e=>{state.settings.months=Number(e.target.value);renderHeader();renderResults();persist();};
 $('#currency').onchange=e=>{state.settings.currency=e.target.value;renderAll();persist();toast('Currency label changed. Input amounts are not converted.');};
@@ -165,10 +208,29 @@ $('#focus-evidence').onclick=()=>{$('#details-dialog').close();$('#assumptions-d
 $('#export-csv').onclick=()=>{if(allValid()){download(toCSV(state.projects,state.settings),'dobson-value-lab-comparison.csv','text/csv;charset=utf-8');toast('Comparison downloaded with all three sensitivity cases.');}};
 $('#export-json').onclick=$('#confirm-save').onclick=exportJSON;
 $('#import-json').onclick=()=>$('#import-file').click();
-$('#import-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>1000000)throw new Error('Choose a JSON export under 1 MB.');const imported=parseImport(await f.text());confirmAction('Open this analysis?','This replaces the current opportunities and settings. Save your current analysis first if you want to keep it.',()=>{state=imported;current=state.projects[0].id;scenario='base';renderAll();persist();toast('Analysis opened.');});}catch(err){toast('Could not open analysis: '+err.message);}finally{e.target.value='';}};
-$('#reset').onclick=()=>confirmAction('Reset to the examples?','This clears the current analysis and its saved device copy. Download your analysis first if you want to keep it.',()=>{try{localStorage.removeItem(KEY);}catch{}remember=false;state={schemaVersion:1,settings:{...INITIAL_SETTINGS},projects:[example('cyber','email'),example('time','intake'),example('cash','processing')]};current='email';scenario='base';$('#storage-status').textContent='';renderAll();toast('Reset to illustrative examples.');});
+$('#import-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>1000000)throw new Error('Choose a JSON export under 1 MB.');const imported=parseImport(await f.text());confirmAction('Open this analysis?','This replaces the current opportunities and settings. Save your current analysis first if you want to keep it.',()=>{state=imported;current=state.projects[0].id;scenario='base';inputGroup=0;renderAll();setView('model');$('#export-dialog').close();persist();toast('Analysis opened.');});}catch(err){toast('Could not open analysis: '+err.message);}finally{e.target.value='';}};
+$('#reset').onclick=()=>confirmAction('Reset to the examples?','This clears the current analysis and its saved device copy. Download your analysis first if you want to keep it.',()=>{try{localStorage.removeItem(KEY);}catch{}remember=false;state={schemaVersion:1,settings:{...INITIAL_SETTINGS},projects:[example('cyber','email'),example('time','intake'),example('cash','processing')]};current='email';scenario='base';$('#storage-status').textContent='';inputGroup=0;renderAll();setView('goals');$('#export-dialog').close();toast('Reset to illustrative examples.');});
 $('#confirm-yes').onclick=()=>{const action=pending;pending=null;$('#confirm-dialog').close();action?.();};
 $('#print').onclick=()=>{$('#export-dialog').close();brief();};$('#print-now').onclick=()=>window.print();
+document.querySelectorAll('[data-art]').forEach(el=>el.innerHTML=art(el.dataset.art));
+document.addEventListener('click',e=>{
+  const goal=e.target.closest('[data-goal]');if(goal){chooseGoal(goal.dataset.goal);return;}
+  const nav=e.target.closest('[data-view]');if(nav){setView(nav.dataset.view);return;}
+  const group=e.target.closest('[data-group]');if(group){inputGroup=Number(group.dataset.group);renderQuick();return;}
+  const nudge=e.target.closest('[data-nudge]');if(nudge){
+    const key=nudge.dataset.nudge,p=selected(),[min,max]=LIMITS[key];
+    p[key]=Math.min(max,Math.max(min,Number(((Number.isFinite(p[key])?p[key]:0)+Number(nudge.dataset.amount)).toFixed(6))));
+    $('#field-'+key).value=p[key];
+    // Keep the focused button in place for repeated keyboard or pointer adjustments.
+    const row=nudge.closest('.slider-row'),number=row.querySelector('input[type=number]');
+    number.value=p[key];number.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+});
+$('#group-back').onclick=()=>{inputGroup=Math.max(0,inputGroup-1);renderQuick();};
+$('#group-next').onclick=()=>{if(inputGroup<2){inputGroup++;renderQuick();$('#question-title').setAttribute('tabindex','-1');$('#question-title').focus();}else setView('compare');};
+$('#opportunity-select').onchange=e=>selectProject(e.target.value);
+$('#compare-brief').onclick=brief;
 let resizeFrame;
 window.addEventListener('resize',()=>{cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(renderResults);});
 renderAll();
+setView('goals',false);
