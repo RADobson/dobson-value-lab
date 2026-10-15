@@ -6,7 +6,7 @@ An open-source, browser-local sales discovery and investment workbench for cyber
 
 [Methodology](docs/METHODOLOGY.md) · [Sales playbook and product ideas](docs/PRODUCT.md) · [MIT licence](LICENSE)
 
-A private ChatGPT Site has been registered, but publication is pending because the current app session rejected the publishing helper's input. The reserved address is `https://dobson-value-lab.richard-arthur-dobso.chatgpt.site`; it is not yet a verified live deployment. Repository code is public and can be self-hosted. Website audience is configured separately in Sites.
+The app is hosted on [ChatGPT Sites](https://dobson-value-lab.richard-arthur-dobso.chatgpt.site). Access is currently private to the owner. Repository code is public and can be self-hosted. Website audience is configured separately in Sites.
 
 ## What it does
 
