@@ -12,7 +12,7 @@ const compact=n=>new Intl.NumberFormat('en-AU',{style:'currency',currency:state.
 const ratio=n=>n===null?'—':`${n.toFixed(2)}×`;
 const typeLabel={cyber:'Expected loss avoided',time:'Capacity value + cash share',cash:'Realised spend reduction'};
 const evidenceLabels={hypothesis:'Hypothesis',estimated:'Informed estimate',measured:'Measured / tested'};
-const colours={cyber:'#285e58',time:'#87709e',cash:'#b77441'};
+const colours={cyber:'#3c7668',time:'#748f9c',cash:'#b09979'};
 let toastTimer;
 function toast(s){$('#toast').textContent=s;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,4500);}
 function serialise(){return JSON.stringify({...state,modelVersion:VERSION,exportedAt:new Date().toISOString()},null,2);}
@@ -30,14 +30,83 @@ $('#assumptions').innerHTML=html;
 $('#duplicate').onclick=()=>{if(state.projects.length>=20)return toast('Keep up to 20 opportunities per analysis.');const clone={...p,id:crypto.randomUUID(),name:(p.name+' — alternative').slice(0,100)};state.projects.push(clone);current=clone.id;renderAll();persist();};
 $('#delete').onclick=()=>confirmAction('Remove this opportunity?',`${p.name} will be removed from this analysis.`,()=>{state.projects=state.projects.filter(x=>x.id!==p.id);current=state.projects[0].id;renderAll();persist();});
 }
-function renderSidebar(){ $('#project-count').textContent=String(state.projects.length).padStart(2,'0');$('#project-list').innerHTML=state.projects.map((p,i)=>`<button class="project-item ${p.id===current?'selected':''}" data-project="${esc(p.id)}" ${p.id===current?'aria-current="true"':''}><span>${String(i+1).padStart(2,'0')} / ${esc(MODES[p.type].toUpperCase())}</span><strong>${esc(p.name||'Untitled opportunity')}</strong></button>`).join(''); }
-function renderHeader(){const p=selected();$('#model-label').textContent=MODES[p.type].toUpperCase();$('#project-heading').textContent=p.name||'Untitled opportunity';$('#example-text').textContent=p.isExample?'Illustrative example. Replace the assumptions with your own evidence.':'Your estimate. Results are only as reliable as the supporting evidence.';$('#mark-own').hidden=!p.isExample;$('#horizon').value=state.settings.months;$('#currency').value=state.settings.currency;$('#remember').checked=remember;document.querySelectorAll('[data-scenario]').forEach(b=>{b.classList.toggle('active',b.dataset.scenario===scenario);b.setAttribute('aria-pressed',String(b.dataset.scenario===scenario));});const s=state.settings;$('#scenario-caption').textContent=scenario==='base'?'Your assumptions, unchanged':scenario==='downside'?`Benefits −${s.benefitDown}% · costs +${s.costUp}%`:`Benefits +${s.benefitUp}% · costs −${s.costDown}%`;$('#matrix-horizon').textContent=`${s.months} MONTHS · ${s.currency}`;}
-function metric(label,value,sub,hero=false){return `<div class="metric ${hero?'hero':''}"><span class="metric-label">${esc(label)}</span><strong class="metric-value">${esc(value)}</strong><span class="metric-sub">${esc(sub)}</span></div>`;}
-function renderResults(){const p=selected(),errors=validate(p);
-if(errors.length||!validateSettings(state.settings)){ $('#results').innerHTML=`<div class="error-panel" role="alert"><strong>Check your inputs.</strong> ${esc(errors.join(' ')||'Use valid sensitivity settings.')} Results are paused until these are corrected.</div>`;$('#outcome').innerHTML='';$('#matrix').innerHTML='<p class="chart-note">Correct the inputs to show the investment matrix.</p>';$('#comparison-rows').innerHTML='';$('#next-copy').textContent='Correct the highlighted inputs before continuing.';return;}
-const r=calculate(p,state.settings,scenario),months=state.settings.months;
-const first=p.type==='time'?metric('Hours recovered / $1,000',r.hoursPer1000===null?'—':`${fmt(r.hoursPer1000)}h`,`${months}-month capacity efficiency`,true):metric(p.type==='cyber'?'Risk reduced / $1 invested':'Cash saved / $1 invested',ratio(p.type==='cash'?r.cashRatio:r.ratio),p.type==='cyber'?'Expected loss avoided, less new risk':'Gross realised savings before project cost',true);
-$('#results').innerHTML=`<div class="metrics">${first}${metric('Net economic value',compact(r.net),`${months}-month benefit minus all project costs`)}${metric(p.type==='cash'&&p.introducedRisk===0?'Cash break-even':'Economic break-even',r.breakEven===null?'Not reached':`${r.breakEven} mo`,r.breakEven===null?`Within the ${months}-month horizon`:'First month-end recovery')}</div><div class="minor-metrics"><span>Total cost <b>${money(r.cost)}</b></span><span>ROI <b>${r.roi===null?'—':fmt(r.roi)+'%'}</b></span><span>NPV <b>${money(r.npv)}</b></span><span>Active benefit period <b>${r.activeMonths} mo</b></span></div>`;
+const icons={
+  cyber:'<path d="M12 3 4.5 6v5.5c0 4.5 7.5 8.5 7.5 8.5s7.5-4 7.5-8.5V6Z"/><path d="m8.5 11.5 2.5 2.5 4.5-5"/>',
+  time:'<circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/>',
+  cash:'<rect x="3" y="6" width="18" height="12" rx="3"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/>'
+};
+const modeNames={cyber:'Cyber risk',time:'Time saved',cash:'Money saved'};
+const quickFields={
+  cyber:[['setup','Implementation',100000,100,'$'],['monthly','Monthly cost',5000,50,'$'],['impact','Loss per event',1000000,1000,'$'],['frequencyReduction','Fewer incidents',100,1,'%'],['impactReduction','Lower impact',100,1,'%']],
+  time:[['setup','Implementation',100000,100,'$'],['monthly','Monthly cost',5000,50,'$'],['volume','Tasks per month',10000,50,''],['beforeMinutes','Manual time / task',60,1,'min'],['adoption','Adoption',100,1,'%']],
+  cash:[['setup','Implementation',100000,100,'$'],['monthly','Monthly cost',5000,50,'$'],['annualSpend','Annual spend',1000000,1000,'$'],['savingsRate','Spend reduction',100,1,'%'],['realisation','Savings realised',100,1,'%']]
+};
+function renderQuick(){
+  const p=selected();
+  $('#quick-controls').innerHTML=quickFields[p.type].map(([key,label,max,step,unit])=>{
+    const v=p[key], upper=Math.max(max,Number.isFinite(v)?v:0), percent=Number.isFinite(v)?Math.max(0,Math.min(100,v/upper*100)):0;
+    return `<div class="slider-row"><div class="slider-heading"><label for="quick-${key}">${label}</label><div class="numeric-value">${unit==='$'?'<span>$</span>':''}<input id="quick-${key}" data-key="${key}" type="number" inputmode="decimal" min="${LIMITS[key][0]}" max="${LIMITS[key][1]}" step="any" value="${Number.isFinite(v)?v:''}" required aria-label="${label}">${unit&&unit!=='$'?`<span>${unit}</span>`:''}</div></div><input type="range" data-key="${key}" aria-label="Adjust ${label.toLowerCase()}" min="0" max="${upper}" step="${step}" value="${Number.isFinite(v)?v:0}" style="--fill:${percent}%"></div>`;
+  }).join('');
+}
+function renderSidebar(){
+  $('#project-list').innerHTML=state.projects.map(p=>{
+    const sameType=state.projects.filter(x=>x.type===p.type).length>1;
+    return `<button class="project-item ${p.id===current?'selected':''}" data-project="${esc(p.id)}" ${p.id===current?'aria-current="true"':''} title="${esc(p.name)}"><svg viewBox="0 0 24 24" aria-hidden="true">${icons[p.type]}</svg><span>${sameType?esc(p.name||'Untitled'):`<span class="tab-long">${modeNames[p.type]}</span><span class="tab-short">${{cyber:'Risk',time:'Time',cash:'Savings'}[p.type]}</span>`}</span></button>`;
+  }).join('');
+}
+function renderHeader(){
+  const p=selected(),s=state.settings;
+  $('#project-heading').textContent=p.name||'Untitled opportunity';
+  $('#example-badge').textContent=p.isExample?'Example':'Edit';
+  $('#example-badge').title=p.isExample?'Edit this illustrative example':'Edit opportunity';
+  $('#example-text').textContent=p.isExample?'Illustrative inputs. Add your own evidence.':'Your estimate.';
+  $('#mark-own').hidden=!p.isExample;
+  $('#horizon').value=s.months;
+  $('#currency').value=s.currency;
+  $('#remember').checked=remember;
+  $('#evidence-summary').textContent=evidenceLabels[p.confidence];
+  document.querySelectorAll('[data-scenario]').forEach(b=>{
+    b.classList.toggle('active',b.dataset.scenario===scenario);
+    b.setAttribute('aria-pressed',String(b.dataset.scenario===scenario));
+  });
+  $('#scenario-caption').textContent=scenario==='base'?'Base assumptions, unchanged.':scenario==='downside'?`Benefits −${s.benefitDown}% · costs +${s.costUp}%`:`Benefits +${s.benefitUp}% · costs −${s.costDown}%`;
+  $('#matrix-horizon').textContent=`${s.months} MONTHS · ${s.currency} · ${scenario.toUpperCase()}`;
+  $('#value-note').textContent=p.type==='cyber'?'Modelled risk benefit':p.type==='time'?`Capacity value · ${fmt(p.cashRealisation)}% cash realisation`:'Modelled cash savings';
+}
+function renderTrajectory(r){
+  const months=state.settings.months;
+  const values=r.flows.map(f=>f.cumulative);
+  const rawMin=Math.min(0,...values),rawMax=Math.max(0,...values),span=Math.max(1,rawMax-rawMin);
+  const min=rawMin-span*.18,max=rawMax+span*.18;
+  const width=Math.max(240,$('#trajectory').clientWidth),right=width-12;
+  const x=m=>32+m/months*(right-32),y=v=>18+(max-v)/(max-min)*154;
+  const points=r.flows.map(f=>`${x(f.month)},${y(f.cumulative)}`);
+  const path='M'+points.join(' L'),end=r.flows.at(-1),negative=r.net<0;
+  let svg=`<svg class="trajectory" viewBox="0 0 ${width} 210" role="img" aria-labelledby="trajectory-title trajectory-desc"><title id="trajectory-title">Cumulative net economic value</title><desc id="trajectory-desc">Starts at ${esc(money(-r.flows[0].cost))}, ends at ${esc(money(r.net))} after ${months} months. ${r.breakEven===null?'Break-even is not reached.':`First month-end recovery: month ${r.breakEven}.`}</desc><defs><linearGradient id="value-fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${negative?'#ba7864':'#79ac92'}" stop-opacity=".18"/><stop offset="1" stop-color="${negative?'#ba7864':'#79ac92'}" stop-opacity=".015"/></linearGradient></defs><line x1="32" y1="${y(0)}" x2="${right}" y2="${y(0)}" stroke="#d7e1da" stroke-dasharray="3 5"/><text x="20" y="${y(0)+4}" text-anchor="end" class="zero-label">$0</text><path d="${path} L${x(months)},${y(0)} L${x(0)},${y(0)} Z" fill="url(#value-fill)"/><path d="${path}" class="value-line ${negative?'negative-line':''}"/><circle cx="${x(months)}" cy="${y(end.cumulative)}" r="5.5" class="end-dot ${negative?'negative-dot':''}"/>`;
+  if(r.breakEven!==null){
+    const f=r.flows[r.breakEven],xx=x(f.month),yy=y(f.cumulative);
+    svg+=`<circle cx="${xx}" cy="${yy}" r="4" fill="#fff" stroke="#3c7668" stroke-width="1.5"/><text x="${xx}" y="${yy+24}" text-anchor="${f.month>months*.75?'end':'middle'}" class="recovery-label">Break-even · month ${f.month}</text>`;
+  }
+  for(const m of [0,months/2,months]) svg+=`<text x="${x(m)}" y="201" text-anchor="${m===0?'start':m===months?'end':'middle'}">${m===0?'Today':`Month ${m}`}</text>`;
+  $('#trajectory').innerHTML=svg+'</svg>';
+}
+function renderResults(){
+  const p=selected(),errors=validate(p);
+  if(errors.length||!validateSettings(state.settings)){
+    $('#results').innerHTML=`<div class="error-panel" role="alert"><strong>Check your inputs</strong>${esc(errors.join(' ')||'Use valid sensitivity settings.')}</div>`;
+    for(const id of ['trajectory','summary-metrics','details-metrics','outcome','comparison-rows']) $('#'+id).innerHTML='';
+    $('#matrix').innerHTML='<p class="chart-note">Correct the inputs to show the matrix.</p>';
+    $('#next-copy').textContent='Correct the inputs to continue.';
+    return;
+  }
+  const r=calculate(p,state.settings,scenario),months=state.settings.months;
+  const value=p.type==='time'?r.hoursPer1000:p.type==='cash'?r.cashRatio:r.ratio;
+  const label=p.type==='time'?'Hours recovered / $1,000':p.type==='cash'?'Cash saved / $1 invested':'Risk reduced / $1 invested';
+  const caption=p.type==='cyber'?'Expected loss avoided, less new risk':p.type==='time'?(r.hours<0?'Additional work required':'Time available for higher-value work'):'Gross savings before project cost';
+  $('#results').innerHTML=`<div class="return-block"><p class="return-label">${label}</p><div class="return-number ${value!==null&&value<0?'negative':''}">${value===null?'—':p.type==='time'?fmt(value):value.toFixed(2)}${value!==null?`<span class="unit">${p.type==='time'?'h':'×'}</span>`:''}</div><p class="return-caption">${caption}</p></div>`;
+  $('#summary-metrics').innerHTML=`<div class="summary-item"><span>Net value</span><strong class="${r.net<0?'negative':'positive'}">${r.net>0?'+':''}${compact(r.net)}</strong></div><div class="summary-item"><span>Total cost</span><strong>${compact(r.cost)}</strong></div><div class="summary-item"><span>${p.type==='cash'&&p.introducedRisk===0?'Cash break-even':'Economic break-even'}</span><strong>${r.breakEven===null?'—':`${r.breakEven} <span class="unit">months</span>`}</strong></div>`;
+  $('#details-metrics').innerHTML=`<span>Total cost<b>${money(r.cost)}</b></span><span>Net economic value<b>${money(r.net)}</b></span><span>ROI<b>${r.roi===null?'—':fmt(r.roi)+'%'}</b></span><span>NPV<b>${money(r.npv)}</b></span><span>Benefits active<b>${r.activeMonths} months</b></span><span>Break-even<b>${r.breakEven===null?'Not reached':r.breakEven+' months'}</b></span>`;
+  renderTrajectory(r);
 const bar=(label,value,max,light=false)=>`<div class="bar-row"><div class="bar-label"><span>${esc(label)}</span><b>${money(value)}</b></div><div class="bar-track"><div class="bar-fill ${light?'light':''}" style="width:${Math.max(0,Math.min(100,max>0?value/max*100:0))}%"></div></div></div>`;
 if(p.type==='cyber')$('#outcome').innerHTML=bar('Baseline annual expected loss',r.baseline,Math.max(r.baseline,r.residualAdjusted))+bar('Residual annual loss, including new risk',r.residualAdjusted,Math.max(r.baseline,r.residualAdjusted),true)+`<p class="outcome-note">${money(r.annualBenefit)} annual expected loss reduction after go-live. A modelled risk benefit, not guaranteed cash savings.</p><div class="outcome-split"><span>Risk reduction</span><strong>${r.baseline>0?fmt(r.annualBenefit/r.baseline*100)+'%':'No baseline loss'}</strong></div>`;
 if(p.type==='time')$('#outcome').innerHTML=bar('Capacity value (non-cash)',r.capacityValue,Math.max(0,r.capacityValue+r.cash))+bar('Cash share backed by expense reduction',r.cash,Math.max(0,r.capacityValue+r.cash),true)+`<p class="outcome-note">${fmt(r.hours)} hours ${r.hours<0?'of extra work':'recovered'} over ${months} months. These are two parts of the same value; they are not added twice.${p.introducedRisk>0?` New risk subtracts ${money(p.introducedRisk*r.activeMonths/12)} from the total.`:''}</p><div class="outcome-split"><span>Economic value / $1</span><strong>${ratio(r.ratio)}</strong></div>`;
@@ -52,14 +121,36 @@ ps.forEach((p,i)=>{const r=rs[i],idx=state.projects.indexOf(p)+1;svg+=`<g class=
 $('#matrix').innerHTML=svg+'</svg>';}
 function renderComparison(){ $('#comparison-rows').innerHTML=state.projects.map((p,i)=>{if(!validProject(p))return `<tr><td>${esc(p.name)}</td><td colspan="5">Correct invalid inputs.</td></tr>`;const r=calculate(p,state.settings,scenario);return `<tr><td><button data-project="${esc(p.id)}">${String(i+1).padStart(2,'0')} &nbsp; ${esc(p.name)}</button><small>${typeLabel[p.type]}${p.isExample?' · example':''}</small></td><td>${money(r.cost)}</td><td>${ratio(r.ratio)}${p.type==='time'?`<small>${fmt(r.hoursPer1000??0)} hours / $1,000</small>`:''}</td><td class="${r.net<0?'warning':''}">${money(r.net)}</td><td>${r.breakEven===null?'Not reached':r.breakEven+' months'}</td><td><span class="pill">${evidenceLabels[p.confidence]}</span></td></tr>`;}).join('');}
 function renderSensitivity(){const labels={benefitDown:'Downside benefit reduction (%)',costUp:'Downside cost increase (%)',benefitUp:'Upside benefit increase (%)',costDown:'Upside cost reduction (%)',discount:'Annual discount rate (%)'};$('#sensitivity-fields').innerHTML=Object.entries(labels).map(([k,l])=>`<div class="field"><label for="setting-${k}">${l}</label><input id="setting-${k}" data-setting="${k}" type="number" min="0" max="${k==='discount'?50:k==='benefitUp'||k==='costUp'?200:100}" step="any" value="${state.settings[k]}" required></div>`).join('');}
-function renderAll(){renderSidebar();renderHeader();renderForm();renderSensitivity();renderResults();}
-function selectProject(id){current=id;renderAll();}
+function renderAll(){renderSidebar();renderHeader();renderForm();renderQuick();renderSensitivity();renderResults();}
+function selectProject(id){current=id;renderAll();if($('#compare-dialog').open)$('#compare-dialog').close();}
 function download(content,name,type){const url=URL.createObjectURL(new Blob([content],{type}));const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function exportJSON(){if(!allValid())return;download(serialise(),'dobson-value-lab-analysis.json','application/json');toast('Analysis downloaded. It includes your inputs and evidence notes.');}
 function allValid(){if(!state.projects.every(validProject)||!validateSettings(state.settings)){toast('Correct invalid inputs before exporting.');return false;}return true;}
 function confirmAction(title,copy,action){pending=action;$('#confirm-title').textContent=title;$('#confirm-copy').textContent=copy;$('#confirm-dialog').showModal();}
 function brief(){if(!allValid())return;const s=state.settings;$('#brief').innerHTML=`<div class="brief-head"><p class="eyebrow">DOBSON DEVELOPMENT / VALUE LAB ${VERSION}</p><h2>Investment decision brief</h2><p>${new Intl.DateTimeFormat('en-AU',{dateStyle:'long'}).format(new Date())} · ${s.currency} · ${s.months} months · ${esc(scenario)} case · annual discount rate ${s.discount}%</p><p>Prepared from user assumptions. Examples are fictional. This is a decision aid, not a prediction or an assurance of performance.</p></div>`+state.projects.map(p=>{const r=calculate(p,s,scenario);return `<section class="brief-project"><p class="eyebrow">${MODES[p.type].toUpperCase()} / ${esc(evidenceLabels[p.confidence])}${p.isExample?' / ILLUSTRATIVE EXAMPLE':''}</p><h3>${esc(p.name)}</h3><div class="brief-stats"><div>Total investment<strong>${money(r.cost)}</strong></div><div>Economic value / $1<strong>${ratio(r.ratio)}</strong></div><div>Net value<strong>${money(r.net)}</strong></div><div>NPV<strong>${money(r.npv)}</strong></div><div>Economic break-even<strong>${r.breakEven===null?'Not reached':r.breakEven+' months'}</strong></div></div>${p.type==='time'?`<p><strong>${fmt(r.hours)} hours recovered; ${money(r.cash)} cash share and ${money(r.capacityValue)} non-cash capacity value before costs and new risk.</strong></p>`:p.type==='cash'?`<p><strong>${money(r.cash)} gross cash savings before cost; ${money(r.cash-r.cost)} after cost and before new expected risk.</strong></p>`:`<p><strong>Baseline annual loss ${money(r.baseline)}; residual annual loss ${money(r.residualAdjusted)} including new risk.</strong></p>`}<div class="brief-assumptions">${Object.keys(DEFAULTS[p.type]).filter(k=>LIMITS[k]).map(k=>`<span>${numLabels[k]}<b>${fmt(p[k])}</b></span>`).join('')}</div><table class="brief-scenarios"><thead><tr><th>Scenario</th><th>Total cost</th><th>Economic benefit</th><th>Net value</th><th>Value / $1</th></tr></thead><tbody>${['downside','base','upside'].map(sc=>{const z=calculate(p,s,sc);return `<tr><td>${sc}</td><td>${money(z.cost)}</td><td>${money(z.benefit)}</td><td>${money(z.net)}</td><td>${ratio(z.ratio)}</td></tr>`;}).join('')}</tbody></table><p><b>Owner:</b> ${esc(p.owner||'Not assigned')}<br><b>Evidence:</b> ${esc(p.evidence||'No source evidence recorded.')}<br><b>Next step:</b> ${esc(p.validation||'Not defined.')}</p></section>`;}).join('')+`<section class="brief-project"><h3>Model notes & next decision</h3><p>Downside: gross benefits −${s.benefitDown}%, costs +${s.costUp}%. Upside: gross benefits +${s.benefitUp}%, costs −${s.costDown}%. Benefits are capped at modelled physical limits; negative benefits get worse in the downside. New expected risk is unchanged. These are sensitivity cases, not confidence intervals.</p><p>Setup is paid at month 0, operating costs from month 1, benefits after go-live delay. NPV discounts monthly net value. Expected cyber loss and staff capacity are not guaranteed cash savings. Do not total overlapping opportunities. Check mandatory requirements, service quality, human oversight and residual risk before approval.</p><p><b>Cyber:</b> events/year × loss/event, reduced by frequency and impact controls.<br><b>Capacity:</b> tasks × adoption × minutes saved after retained work and review ÷ 60 × loaded hourly cost.<br><b>Cash:</b> annual addressable spend × reduction × realisation.<br>All models subtract introduced expected risk from economic benefit, and all project costs from net value.</p><p>Source: https://github.com/RADobson/dobson-value-lab<br>Reference framing: NIST SP 800-30 Rev. 1; NIST AI Risk Management Framework. This simplified model is not a certification of either framework.</p><p><b>Pilot success measure:</b> ___________________________<br><b>Review date and owner:</b> ___________________________<br><b>Decision / conditions:</b> ___________________________</p></section>`;$('#brief-dialog').showModal();}
-$('#assumptions').addEventListener('input',e=>{const el=e.target;if(!el.name)return;const p=selected();p[el.name]=LIMITS[el.name]?(el.value===''?NaN:Number(el.value)):el.value;renderSidebar();renderHeader();renderResults();persist();});
+$('#quick-controls').addEventListener('submit',e=>e.preventDefault());
+$('#quick-controls').addEventListener('input',e=>{
+  const el=e.target,key=el.dataset.key;
+  if(!key)return;
+  const value=el.value===''?NaN:Number(el.value);
+  selected()[key]=value;
+  const row=el.closest('.slider-row'),slider=row.querySelector('input[type=range]'),number=row.querySelector('input[type=number]');
+  if(el.type==='range')number.value=value;
+  else if(Number.isFinite(value)){
+    slider.max=Math.max(Number(slider.max),value);
+    slider.value=value;
+  }
+  slider.style.setProperty('--fill',`${Number.isFinite(value)?Math.max(0,Math.min(100,value/Number(slider.max)*100)):0}%`);
+  $('#field-'+key).value=Number.isFinite(value)?value:'';
+  renderResults();persist();
+});
+$('#quick-controls').addEventListener('change',e=>{
+  const key=e.target.dataset.key;if(key&&Number.isFinite(selected()[key]))renderHeader();
+});
+for(const [trigger,target] of Object.entries({'compare-open':'compare-dialog','export-open':'export-dialog','assumptions-open':'assumptions-dialog','example-badge':'assumptions-dialog','details-open':'details-dialog','scenario-settings':'sensitivity-dialog'})){
+  $('#'+trigger).onclick=()=>$('#'+target).showModal();
+}
+$('#assumptions').addEventListener('input',e=>{const el=e.target;if(!el.name)return;const p=selected();p[el.name]=LIMITS[el.name]?(el.value===''?NaN:Number(el.value)):el.value;renderSidebar();renderHeader();renderQuick();renderResults();persist();});
 $('#assumptions').addEventListener('submit',e=>e.preventDefault());
 $('#sensitivity-fields').addEventListener('input',e=>{const k=e.target.dataset.setting;if(!k)return;state.settings[k]=e.target.value===''?NaN:Number(e.target.value);renderHeader();renderResults();persist();});
 document.addEventListener('click',e=>{const project=e.target.closest('[data-project]');if(project){selectProject(project.dataset.project);return;}const close=e.target.closest('[data-close]');if(close){$('#'+close.dataset.close).close();return;}const sc=e.target.closest('[data-scenario]');if(sc){scenario=sc.dataset.scenario;renderHeader();renderResults();return;}const add=e.target.closest('[data-add]');if(add){if(state.projects.length>=20)return toast('Keep up to 20 opportunities per analysis.');const p=example(add.dataset.add,crypto.randomUUID());state.projects.push(p);current=p.id;$('#add-dialog').close();renderAll();persist();}});
@@ -68,14 +159,16 @@ $('#horizon').onchange=e=>{state.settings.months=Number(e.target.value);renderHe
 $('#currency').onchange=e=>{state.settings.currency=e.target.value;renderAll();persist();toast('Currency label changed. Input amounts are not converted.');};
 $('#mark-own').onclick=()=>{selected().isExample=false;renderAll();persist();};
 $('#remember').onchange=e=>{remember=e.target.checked;if(remember)persist();else{try{localStorage.removeItem(KEY);}catch{}$('#storage-status').textContent='Device copy cleared. Current page is unchanged.';}};
-$('#method-open').onclick=$('#privacy-open').onclick=()=>$('#method-dialog').showModal();
+$('#method-open').onclick=()=>$('#method-dialog').showModal();
 $('#add-open').onclick=()=>$('#add-dialog').showModal();
-$('#focus-evidence').onclick=()=>{const el=$('#field-evidence');el.closest('details').open=true;el.focus();};
+$('#focus-evidence').onclick=()=>{$('#details-dialog').close();$('#assumptions-dialog').showModal();const el=$('#field-evidence');el.closest('details').open=true;el.focus();};
 $('#export-csv').onclick=()=>{if(allValid()){download(toCSV(state.projects,state.settings),'dobson-value-lab-comparison.csv','text/csv;charset=utf-8');toast('Comparison downloaded with all three sensitivity cases.');}};
 $('#export-json').onclick=$('#confirm-save').onclick=exportJSON;
 $('#import-json').onclick=()=>$('#import-file').click();
 $('#import-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>1000000)throw new Error('Choose a JSON export under 1 MB.');const imported=parseImport(await f.text());confirmAction('Open this analysis?','This replaces the current opportunities and settings. Save your current analysis first if you want to keep it.',()=>{state=imported;current=state.projects[0].id;scenario='base';renderAll();persist();toast('Analysis opened.');});}catch(err){toast('Could not open analysis: '+err.message);}finally{e.target.value='';}};
 $('#reset').onclick=()=>confirmAction('Reset to the examples?','This clears the current analysis and its saved device copy. Download your analysis first if you want to keep it.',()=>{try{localStorage.removeItem(KEY);}catch{}remember=false;state={schemaVersion:1,settings:{...INITIAL_SETTINGS},projects:[example('cyber','email'),example('time','intake'),example('cash','processing')]};current='email';scenario='base';$('#storage-status').textContent='';renderAll();toast('Reset to illustrative examples.');});
 $('#confirm-yes').onclick=()=>{const action=pending;pending=null;$('#confirm-dialog').close();action?.();};
-$('#print').onclick=brief;$('#print-now').onclick=()=>window.print();
+$('#print').onclick=()=>{$('#export-dialog').close();brief();};$('#print-now').onclick=()=>window.print();
+let resizeFrame;
+window.addEventListener('resize',()=>{cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(renderResults);});
 renderAll();
